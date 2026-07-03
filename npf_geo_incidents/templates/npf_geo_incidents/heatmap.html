@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Nigeria Police Force — Interactive Crime Incident Heatmap Dashboard with drill-down to LGA level.">
+    <title>{{ page_title }}</title>
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- Google Fonts — Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
+
+    <style>
+        /* ─── CSS Design System ─────────────────────────────────────────── */
+        :root {
+            --bg-primary:    #0a0e17;
+            --bg-secondary:  #111827;
+            --bg-card:       #1a1f2e;
+            --bg-glass:      rgba(26, 31, 46, 0.85);
+            --border:        rgba(255,255,255,0.06);
+            --text-primary:  #e2e8f0;
+            --text-muted:    #94a3b8;
+            --accent:        #22d3ee;
+            --accent-glow:   rgba(34, 211, 238, 0.25);
+            --danger:        #ef4444;
+            --warning:       #f59e0b;
+            --success:       #10b981;
+            --gradient-1:    linear-gradient(135deg, #0ea5e9, #8b5cf6);
+            --gradient-2:    linear-gradient(135deg, #22d3ee, #06b6d4);
+            --radius:        12px;
+            --shadow:        0 8px 32px rgba(0,0,0,.45);
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        /* ─── Topbar ──────────────────────────────────────────────────── */
+        .topbar {
+            position: fixed; top: 0; left: 0; right: 0;
+            z-index: 1000;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 24px;
+            height: 60px;
+            background: var(--bg-glass);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+        }
+        .topbar-brand {
+            display: flex; align-items: center; gap: 12px;
+            font-weight: 700; font-size: 1.15rem;
+        }
+        .topbar-brand .badge {
+            background: var(--gradient-1);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: .7rem;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+        .topbar-stats {
+            display: flex; gap: 20px; align-items: center;
+        }
+        .stat-pill {
+            display: flex; align-items: center; gap: 6px;
+            background: rgba(255,255,255,.05);
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: .8rem;
+            font-weight: 500;
+        }
+        .stat-pill .dot { width: 8px; height: 8px; border-radius: 50%; }
+        .stat-pill .dot.live { background: var(--success); box-shadow: 0 0 8px var(--success); animation: pulse-dot 2s infinite; }
+        .stat-pill .dot.warn { background: var(--warning); }
+        @keyframes pulse-dot { 0%,100% { opacity: 1; } 50% { opacity: .4; } }
+
+        .btn-report {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 8px 18px;
+            border: none; border-radius: 8px;
+            background: var(--gradient-1);
+            color: #fff; font-weight: 600; font-size: .85rem;
+            cursor: pointer;
+            text-decoration: none;
+            transition: transform .15s, box-shadow .15s;
+        }
+        .btn-report:hover { transform: translateY(-1px); box-shadow: 0 4px 20px var(--accent-glow); }
+
+        /* ─── Map container ───────────────────────────────────────────── */
+        #map {
+            position: fixed; top: 60px; left: 0; right: 0; bottom: 0;
+            z-index: 1;
+        }
+
+        /* ─── Breadcrumb / nav overlay ────────────────────────────────── */
+        .map-overlay-nav {
+            position: fixed; top: 72px; left: 16px;
+            z-index: 800;
+            display: flex; gap: 8px; align-items: center;
+        }
+        .breadcrumb-btn {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 6px 14px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--bg-glass);
+            backdrop-filter: blur(12px);
+            color: var(--text-primary);
+            font-size: .8rem; font-weight: 500;
+            cursor: pointer;
+            transition: all .2s;
+        }
+        .breadcrumb-btn:hover { background: rgba(255,255,255,.1); }
+        .breadcrumb-btn.active { border-color: var(--accent); color: var(--accent); }
+
+        /* ─── Side panel: Incident list ───────────────────────────────── */
+        .side-panel {
+            position: fixed;
+            top: 60px; right: 0;
+            width: 380px; height: calc(100vh - 60px);
+            z-index: 900;
+            background: var(--bg-glass);
+            backdrop-filter: blur(24px);
+            border-left: 1px solid var(--border);
+            transform: translateX(100%);
+            transition: transform .35s cubic-bezier(.4,0,.2,1);
+            overflow-y: auto;
+            display: flex; flex-direction: column;
+        }
+        .side-panel.open { transform: translateX(0); }
+
+        .panel-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .panel-header h2 { font-size: 1rem; font-weight: 600; }
+        .panel-header .close-btn {
+            width: 32px; height: 32px;
+            display: flex; align-items: center; justify-content: center;
+            border: 1px solid var(--border);
+            border-radius: 8px; background: none;
+            color: var(--text-muted); cursor: pointer;
+            transition: .2s;
+        }
+        .panel-header .close-btn:hover { color: var(--danger); border-color: var(--danger); }
+
+        .panel-body { padding: 12px 16px; flex: 1; }
+
+        .incident-card {
+            padding: 14px;
+            margin-bottom: 10px;
+            background: rgba(255,255,255,.03);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            transition: border-color .2s, transform .15s;
+            cursor: default;
+        }
+        .incident-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+        .incident-card .card-title {
+            font-size: .9rem; font-weight: 600;
+            margin-bottom: 6px;
+        }
+        .incident-card .card-meta {
+            display: flex; gap: 8px; flex-wrap: wrap;
+            font-size: .75rem; color: var(--text-muted);
+        }
+        .incident-card .card-meta .tag {
+            padding: 2px 8px; border-radius: 4px;
+            font-weight: 500;
+        }
+        .tag-severity-low      { background: rgba(16,185,129,.15); color: var(--success); }
+        .tag-severity-medium   { background: rgba(245,158,11,.15); color: var(--warning); }
+        .tag-severity-high     { background: rgba(239,68,68,.15);  color: var(--danger); }
+        .tag-severity-critical { background: rgba(239,68,68,.3);   color: #fca5a5; }
+        .tag-type { background: rgba(34,211,238,.1); color: var(--accent); }
+
+        .panel-empty {
+            text-align: center; padding: 40px 20px;
+            color: var(--text-muted); font-size: .9rem;
+        }
+
+        .panel-loading {
+            text-align: center; padding: 60px 20px;
+            color: var(--accent); font-size: .85rem;
+        }
+        .spinner {
+            width: 28px; height: 28px;
+            border: 3px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            margin: 0 auto 12px;
+            animation: spin .7s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ─── Legend overlay ──────────────────────────────────────────── */
+        .map-legend {
+            position: fixed; bottom: 20px; left: 16px;
+            z-index: 800;
+            background: var(--bg-glass);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 14px 18px;
+            font-size: .75rem;
+        }
+        .map-legend h4 { font-size: .8rem; margin-bottom: 8px; font-weight: 600; }
+        .legend-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+        .legend-swatch { width: 18px; height: 10px; border-radius: 3px; }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .side-panel { width: 100%; }
+            .topbar-stats { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ─── Topbar ────────────────────────────────────────────────────────── -->
+<header class="topbar">
+    <div class="topbar-brand">
+        <span>🛡️</span>
+        <span>NPF Geo Incidents</span>
+        <span class="badge">Live Map</span>
+    </div>
+    <div class="topbar-stats">
+        <div class="stat-pill"><span class="dot live"></span> {{ incident_counts.total }} Reports</div>
+        <div class="stat-pill"><span class="dot warn"></span> {{ incident_counts.verified }} Verified</div>
+        {% if user.is_authenticated %}
+            <div class="stat-pill" style="border: 1px solid var(--accent); color: var(--accent)">
+                👤 {{ user.username }} ({{ user.profile.get_role_display }})
+            </div>
+            <a href="{% url 'npf_geo_incidents:analytics_dashboard' %}" class="btn-report" style="background:var(--gradient-1); text-decoration:none; padding: 6px 12px; margin-left: 5px; font-size:.8rem;">📊 Analytics Dashboard</a>
+            <a href="{% url 'npf_geo_incidents:biometrics_dashboard' %}" class="btn-report" style="background:var(--gradient-2); text-decoration:none; padding: 6px 12px; margin-left: 5px; font-size:.8rem;">🔎 Biometrics Portal</a>
+            <a href="{% url 'npf_geo_incidents:logout' %}" class="breadcrumb-btn" style="text-decoration:none; padding: 6px 12px; margin-left: 5px;">Logout</a>
+        {% else %}
+            <a href="{% url 'npf_geo_incidents:login' %}" class="breadcrumb-btn" style="text-decoration:none; padding: 6px 12px; margin-left: 5px;">Officer Sign In</a>
+        {% endif %}
+    </div>
+    <a href="{% url 'npf_geo_incidents:report_incident' %}" class="btn-report" id="btn-report-incident">
+        ＋ Report Incident
+    </a>
+</header>
+
+<!-- ─── Map ───────────────────────────────────────────────────────────── -->
+<div id="map"></div>
+
+<!-- ─── Breadcrumb Nav ────────────────────────────────────────────────── -->
+<div class="map-overlay-nav" id="breadcrumb-nav">
+    <button class="breadcrumb-btn active" id="btn-all-states" onclick="zoomToNigeria()">🇳🇬 All States</button>
+</div>
+
+<!-- ─── Legend ─────────────────────────────────────────────────────────── -->
+<div class="map-legend">
+    <h4>Incident Density</h4>
+    <div class="legend-row"><span class="legend-swatch" style="background:rgba(34,211,238,.3)"></span> Low</div>
+    <div class="legend-row"><span class="legend-swatch" style="background:rgba(245,158,11,.5)"></span> Medium</div>
+    <div class="legend-row"><span class="legend-swatch" style="background:rgba(239,68,68,.7)"></span> High</div>
+    <div class="legend-row"><span class="legend-swatch" style="background:rgba(239,68,68,1)"></span> Critical</div>
+
+    <h4 style="margin-top:12px; margin-bottom:6px;">Spatial ML Layer</h4>
+    <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:.75rem;">
+        <input type="checkbox" id="toggle-predictive-hotspots" onchange="toggleHotspots(this.checked)" style="accent-color:var(--accent);">
+        <span>Predictive Hotspots</span>
+    </label>
+</div>
+
+<!-- ─── Side Panel ────────────────────────────────────────────────────── -->
+<aside class="side-panel" id="side-panel">
+    <div class="panel-header">
+        <h2 id="panel-title">Incidents</h2>
+        <button class="close-btn" onclick="closePanel()" title="Close">&times;</button>
+    </div>
+    <div class="panel-body" id="panel-body">
+        <div class="panel-empty">Click an LGA on the map to view incidents.</div>
+    </div>
+</aside>
+
+<!-- ─── Scripts ───────────────────────────────────────────────────────── -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<script>
+(function() {
+    'use strict';
+
+    // ─── Map Init ────────────────────────────────────────────────────
+    const map = L.map('map', {
+        center: [9.0820, 8.6753],   // Nigeria center
+        zoom: 6,
+        minZoom: 5,
+        maxZoom: 18,
+        zoomControl: false
+    });
+
+    // Dark tile layer
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
+        maxZoom: 19
+    }).addTo(map);
+
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+    // ─── State & Style ───────────────────────────────────────────────
+    let statesLayer = null;
+    let lgaLayer    = null;
+    let heatLayer   = null;
+    let hotspotLayer = null;
+    let showHotspots = false;
+    let currentState = null;
+
+    const stateStyle = (feature) => {
+        const count = feature.properties.incident_count || 0;
+        let fillColor = 'rgba(34,211,238,0.15)';
+        if (count > 20) fillColor = 'rgba(239,68,68,0.4)';
+        else if (count > 10) fillColor = 'rgba(245,158,11,0.3)';
+        else if (count > 5)  fillColor = 'rgba(34,211,238,0.25)';
+        return {
+            fillColor,
+            weight: 1,
+            color: 'rgba(34,211,238,0.4)',
+            fillOpacity: 0.7,
+        };
+    };
+
+    const lgaStyle = (feature) => {
+        const count = feature.properties.incident_count || 0;
+        let fillColor = 'rgba(34,211,238,0.1)';
+        if (count > 10) fillColor = 'rgba(239,68,68,0.4)';
+        else if (count > 5) fillColor = 'rgba(245,158,11,0.3)';
+        else if (count > 2) fillColor = 'rgba(34,211,238,0.25)';
+        return {
+            fillColor,
+            weight: 1,
+            color: 'rgba(139,92,246,0.5)',
+            fillOpacity: 0.7,
+        };
+    };
+
+    const highlightStyle = {
+        weight: 2,
+        color: '#22d3ee',
+        fillOpacity: 0.5,
+    };
+
+    // ─── Load States GeoJSON ─────────────────────────────────────────
+    function loadStates() {
+        fetch('{% url "npf_geo_incidents:api_states" %}')
+            .then(r => r.json())
+            .then(data => {
+                if (statesLayer) map.removeLayer(statesLayer);
+                if (lgaLayer)    { map.removeLayer(lgaLayer); lgaLayer = null; }
+
+                statesLayer = L.geoJSON(data, {
+                    style: stateStyle,
+                    onEachFeature: (feature, layer) => {
+                        layer.bindTooltip(
+                            `<strong>${feature.properties.name}</strong><br>${feature.properties.incident_count} incidents`,
+                            { sticky: true, className: 'dark-tooltip' }
+                        );
+                        layer.on('mouseover', () => layer.setStyle(highlightStyle));
+                        layer.on('mouseout',  () => statesLayer.resetStyle(layer));
+                        layer.on('click',     () => drillDownState(feature));
+                    }
+                }).addTo(map);
+            })
+            .catch(err => console.error('Failed to load states:', err));
+    }
+
+    // ─── Drill-down: State → LGAs ───────────────────────────────────
+    function drillDownState(feature) {
+        currentState = feature.properties;
+        const stateId = feature.properties.state_id;
+
+        // Update breadcrumb
+        updateBreadcrumb(feature.properties.name);
+
+        // Zoom to state bounds
+        if (statesLayer) {
+            statesLayer.eachLayer(l => {
+                if (l.feature.properties.state_id === stateId) {
+                    map.fitBounds(l.getBounds(), { padding: [30, 30] });
+                }
+            });
+        }
+
+        // Fetch LGA boundaries
+        fetch(`/api/state/${stateId}/lgas/`)
+            .then(r => r.json())
+            .then(data => {
+                if (statesLayer) map.removeLayer(statesLayer);
+                if (lgaLayer)    map.removeLayer(lgaLayer);
+
+                lgaLayer = L.geoJSON(data, {
+                    style: lgaStyle,
+                    onEachFeature: (feature, layer) => {
+                        layer.bindTooltip(
+                            `<strong>${feature.properties.name}</strong><br>${feature.properties.incident_count} incidents`,
+                            { sticky: true, className: 'dark-tooltip' }
+                        );
+                        layer.on('mouseover', () => layer.setStyle(highlightStyle));
+                        layer.on('mouseout',  () => lgaLayer.resetStyle(layer));
+                        layer.on('click',     () => loadLGAIncidents(feature.properties));
+                    }
+                }).addTo(map);
+
+                // Update heatmap for this state
+                loadHeatData({ state_id: stateId });
+                loadHotspotsData();
+            })
+            .catch(err => console.error('Failed to load LGAs:', err));
+    }
+
+    // ─── Load LGA Incidents (AJAX → Side Panel) ─────────────────────
+    function loadLGAIncidents(props) {
+        const panel   = document.getElementById('side-panel');
+        const title   = document.getElementById('panel-title');
+        const body    = document.getElementById('panel-body');
+
+        title.textContent = `${props.name} — Incidents`;
+        body.innerHTML = '<div class="panel-loading"><div class="spinner"></div>Loading incidents…</div>';
+        panel.classList.add('open');
+
+        fetch(`/api/lga/${props.lga_id}/incidents/`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.incidents.length === 0) {
+                    body.innerHTML = '<div class="panel-empty">No incidents recorded for this LGA.</div>';
+                    return;
+                }
+                body.innerHTML = data.incidents.map(inc => `
+                    <div class="incident-card">
+                        <div class="card-title">${escapeHtml(inc.title)}</div>
+                        <div class="card-meta">
+                            <span class="tag tag-type">${escapeHtml(inc.type)}</span>
+                            <span class="tag tag-severity-${inc.severity.toLowerCase()}">${escapeHtml(inc.severity)}</span>
+                            <span>📅 ${escapeHtml(inc.date)}</span>
+                            ${inc.is_verified ? '<span style="color:var(--success)">✓ Verified</span>' : ''}
+                        </div>
+                        ${inc.description ? `<p style="margin-top:8px;font-size:.8rem;color:var(--text-muted)">${escapeHtml(inc.description)}</p>` : ''}
+                    </div>
+                `).join('');
+            })
+            .catch(err => {
+                body.innerHTML = `<div class="panel-empty" style="color:var(--danger)">Error loading incidents.</div>`;
+                console.error('LGA incidents error:', err);
+            });
+    }
+
+    // ─── Heatmap Layer ───────────────────────────────────────────────
+    function loadHeatData(params) {
+        const qs = new URLSearchParams(params || {}).toString();
+        fetch(`{% url "npf_geo_incidents:api_heat" %}?${qs}`)
+            .then(r => r.json())
+            .then(data => {
+                if (heatLayer) map.removeLayer(heatLayer);
+                if (data.heat_points.length) {
+                    heatLayer = L.heatLayer(data.heat_points, {
+                        radius: 25,
+                        blur: 20,
+                        maxZoom: 13,
+                        max: 1.0,
+                        gradient: {
+                            0.2: '#22d3ee',
+                            0.4: '#06b6d4',
+                            0.6: '#f59e0b',
+                            0.8: '#ef4444',
+                            1.0: '#dc2626',
+                        }
+                    }).addTo(map);
+                }
+            })
+            .catch(err => console.error('Heat data error:', err));
+    }
+
+    // ─── Breadcrumb ──────────────────────────────────────────────────
+    function updateBreadcrumb(stateName) {
+        const nav = document.getElementById('breadcrumb-nav');
+        nav.innerHTML = `
+            <button class="breadcrumb-btn" onclick="zoomToNigeria()">🇳🇬 All States</button>
+            <span style="color:var(--text-muted)">›</span>
+            <button class="breadcrumb-btn active">${escapeHtml(stateName)}</button>
+        `;
+    }
+
+    // ─── Global: zoom back to all states ─────────────────────────────
+    window.zoomToNigeria = function() {
+        currentState = null;
+        if (lgaLayer) { map.removeLayer(lgaLayer); lgaLayer = null; }
+        document.getElementById('breadcrumb-nav').innerHTML =
+            '<button class="breadcrumb-btn active" onclick="zoomToNigeria()">🇳🇬 All States</button>';
+        map.setView([9.0820, 8.6753], 6);
+        loadStates();
+        loadHeatData();
+        loadHotspotsData();
+        closePanel();
+    };
+
+    // ─── Predictive Hotspots ─────────────────────────────────────────
+    window.toggleHotspots = function(checked) {
+        showHotspots = checked;
+        if (!checked) {
+            if (hotspotLayer) {
+                map.removeLayer(hotspotLayer);
+                hotspotLayer = null;
+            }
+            return;
+        }
+        loadHotspotsData();
+    };
+
+    function loadHotspotsData() {
+        if (!showHotspots) return;
+        
+        let url = '{% url "npf_geo_incidents:api_predictive_hotspots" %}';
+        let params = {};
+        if (currentState && currentState.state_id) {
+            params.state_id = currentState.state_id;
+        }
+        const qs = new URLSearchParams(params).toString();
+        
+        fetch(`${url}?${qs}`)
+            .then(r => r.json())
+            .then(data => {
+                if (hotspotLayer) map.removeLayer(hotspotLayer);
+                if (!showHotspots) return;
+                
+                hotspotLayer = L.geoJSON(data, {
+                    style: (feature) => {
+                        return {
+                            fillColor: feature.properties.color,
+                            weight: 1,
+                            color: feature.properties.color,
+                            fillOpacity: feature.properties.fillOpacity,
+                        };
+                    },
+                    onEachFeature: (feature, layer) => {
+                        layer.bindTooltip(
+                            `<strong>${feature.properties.risk_level}</strong><br>Forecast Score: ${feature.properties.intensity}`,
+                            { sticky: true, className: 'dark-tooltip' }
+                        );
+                    }
+                }).addTo(map);
+            })
+            .catch(err => console.error('Failed to load hotspots:', err));
+    }
+
+    // ─── Close side panel ────────────────────────────────────────────
+    window.closePanel = function() {
+        document.getElementById('side-panel').classList.remove('open');
+    };
+
+    // ─── Utility ─────────────────────────────────────────────────────
+    function escapeHtml(text) {
+        const d = document.createElement('div');
+        d.textContent = text || '';
+        return d.innerHTML;
+    }
+
+    // ─── Bootstrap ───────────────────────────────────────────────────
+    loadStates();
+    loadHeatData();
+
+    // Tooltip dark style
+    const tooltipStyle = document.createElement('style');
+    tooltipStyle.textContent = `
+        .dark-tooltip {
+            background: rgba(10,14,23,.9) !important;
+            border: 1px solid rgba(34,211,238,.3) !important;
+            color: #e2e8f0 !important;
+            border-radius: 8px !important;
+            padding: 8px 12px !important;
+            font-family: 'Inter', sans-serif !important;
+            font-size: .8rem !important;
+            box-shadow: 0 4px 20px rgba(0,0,0,.5) !important;
+        }
+        .dark-tooltip::before { border-top-color: rgba(10,14,23,.9) !important; }
+    `;
+    document.head.appendChild(tooltipStyle);
+
+})();
+</script>
+</body>
+</html>

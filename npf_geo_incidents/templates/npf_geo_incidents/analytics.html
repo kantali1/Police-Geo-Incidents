@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }} — NPF Geo Incidents</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-primary:   #0a0e17;
+            --bg-secondary: #111827;
+            --bg-card:      #1a1f2e;
+            --bg-glass:     rgba(26, 31, 46, 0.85);
+            --border:       rgba(255,255,255,0.06);
+            --text-primary: #e2e8f0;
+            --text-muted:   #94a3b8;
+            --accent:       #22d3ee;
+            --accent-glow:  rgba(34, 211, 238, 0.25);
+            --gradient-1:   linear-gradient(135deg, #0ea5e9, #8b5cf6);
+            --radius:       12px;
+            --shadow:       0 8px 32px rgba(0,0,0,0.5);
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding-bottom: 60px;
+        }
+
+        /* Topbar */
+        .topbar {
+            height: 60px;
+            background: var(--bg-glass);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 24px;
+            position: sticky; top: 0; z-index: 100;
+        }
+        .topbar-brand {
+            display: flex; align-items: center; gap: 12px;
+            font-weight: 700; font-size: 1.1rem;
+        }
+        .topbar-brand a { color: inherit; text-decoration: none; }
+        .topbar-brand .badge {
+            background: var(--gradient-1);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: .7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .btn-nav-back {
+            color: var(--text-muted); text-decoration: none; font-size: .85rem;
+            display: inline-flex; align-items: center; gap: 6px;
+            transition: color .2s;
+        }
+        .btn-nav-back:hover { color: var(--accent); }
+
+        .container {
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        .header-title {
+            margin-bottom: 30px;
+        }
+        .header-title h1 {
+            font-size: 1.8rem; font-weight: 700;
+            background: var(--gradient-1);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            margin-bottom: 6px;
+        }
+        .header-title p { color: var(--text-muted); font-size: .9rem; }
+
+        /* Chart Grid Layout */
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 24px;
+        }
+        @media (max-width: 768px) {
+            .analytics-grid { grid-template-columns: 1fr; }
+        }
+
+        .chart-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+            box-shadow: var(--shadow);
+            display: flex; flex-direction: column;
+            min-height: 380px;
+        }
+        .chart-card-title {
+            font-size: .95rem; font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 20px;
+            display: flex; align-items: center; gap: 8px;
+            border-bottom: 1px solid rgba(255,255,255,.03);
+            padding-bottom: 8px;
+        }
+        .chart-wrapper {
+            position: relative;
+            flex: 1;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Topbar -->
+    <header class="topbar">
+        <div class="topbar-brand">
+            <span>📊</span>
+            <a href="{% url 'npf_geo_incidents:heatmap' %}">NPF Geo Incidents</a>
+            <span class="badge">Analytics</span>
+        </div>
+        <a href="{% url 'npf_geo_incidents:heatmap' %}" class="btn-nav-back">
+            ← Return to Crime Heatmap
+        </a>
+    </header>
+
+    <div class="container">
+        <div class="header-title">
+            <h1>National crime analytics dashboard</h1>
+            <p>Aggregated statistics on incident types, geographical distributions, and monthly trends.</p>
+        </div>
+
+        <div class="analytics-grid">
+            <!-- 1. Monthly incident trend -->
+            <div class="chart-card">
+                <div class="chart-card-title">📈 Monthly Crime Incident Trend</div>
+                <div class="chart-wrapper">
+                    <canvas id="trendChart"></canvas>
+                </div>
+            </div>
+
+            <!-- 2. Incidents by Severity -->
+            <div class="chart-card">
+                <div class="chart-card-title">🚨 Severity Breakdown</div>
+                <div class="chart-wrapper">
+                    <canvas id="severityChart"></canvas>
+                </div>
+            </div>
+
+            <!-- 3. Incidents by Type -->
+            <div class="chart-card">
+                <div class="chart-card-title">📋 Incidents by Category</div>
+                <div class="chart-wrapper">
+                    <canvas id="typeChart"></canvas>
+                </div>
+            </div>
+
+            <!-- 4. Incidents by State -->
+            <div class="chart-card">
+                <div class="chart-card-title">🇳🇬 Top 10 States by Crime Frequency</div>
+                <div class="chart-wrapper">
+                    <canvas id="stateChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart Configuration Script -->
+    <script>
+        // Global Chart options for dark theme
+        const gridColor = 'rgba(255, 255, 255, 0.05)';
+        const textColor = '#94a3b8';
+
+        Chart.defaults.color = textColor;
+        Chart.defaults.borderColor = gridColor;
+        Chart.defaults.font.family = "'Inter', sans-serif";
+
+        // Parse Django Context Data
+        const trendLabels = {{ trend_labels|safe }};
+        const trendData = {{ trend_data|safe }};
+        
+        const severityLabels = {{ severity_labels|safe }};
+        const severityData = {{ severity_data|safe }};
+        
+        const typeLabels = {{ type_labels|safe }};
+        const typeData = {{ type_data|safe }};
+        
+        const stateLabels = {{ state_labels|safe }};
+        const stateData = {{ state_data|safe }};
+
+        // 1. Monthly Trend Chart (Line)
+        new Chart(document.getElementById('trendChart'), {
+            type: 'line',
+            data: {
+                labels: trendLabels,
+                datasets: [{
+                    label: 'Incidents Reported',
+                    data: trendData,
+                    borderColor: '#22d3ee',
+                    backgroundColor: 'rgba(34, 211, 238, 0.1)',
+                    fill: true,
+                    tension: 0.3,
+                    borderWidth: 2,
+                    pointBackgroundColor: '#22d3ee',
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { grid: { display: false } },
+                    y: { beginAtZero: true, grid: { color: gridColor }, ticks: { stepSize: 1 } }
+                }
+            }
+        });
+
+        // 2. Severity Chart (Doughnut)
+        new Chart(document.getElementById('severityChart'), {
+            type: 'doughnut',
+            data: {
+                labels: severityLabels,
+                datasets: [{
+                    data: severityData,
+                    backgroundColor: [
+                        '#ef4444', // Critical
+                        '#f59e0b', // High
+                        '#3b82f6', // Medium
+                        '#10b981'  // Low
+                    ],
+                    borderWidth: 0,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'right', labels: { boxWidth: 12, padding: 15 } }
+                }
+            }
+        });
+
+        // 3. Incidents by Category (Bar)
+        new Chart(document.getElementById('typeChart'), {
+            type: 'bar',
+            data: {
+                labels: typeLabels,
+                datasets: [{
+                    data: typeData,
+                    backgroundColor: '#8b5cf6',
+                    borderRadius: 6,
+                    barThickness: 18,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { grid: { display: false } },
+                    y: { beginAtZero: true, grid: { color: gridColor } }
+                }
+            }
+        });
+
+        // 4. Incidents by State (Horizontal Bar)
+        new Chart(document.getElementById('stateChart'), {
+            type: 'bar',
+            data: {
+                labels: stateLabels,
+                datasets: [{
+                    data: stateData,
+                    backgroundColor: '#0ea5e9',
+                    borderRadius: 6,
+                    barThickness: 16,
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { beginAtZero: true, grid: { color: gridColor } },
+                    y: { grid: { display: false } }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

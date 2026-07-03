@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }} — NPF Geo Incidents</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary:   #0a0e17;
+            --bg-card:      #1a1f2e;
+            --border:       rgba(255,255,255,0.06);
+            --text-primary: #e2e8f0;
+            --text-muted:   #94a3b8;
+            --accent:       #22d3ee;
+            --accent-glow:  rgba(34, 211, 238, 0.25);
+            --danger:       #ef4444;
+            --success:      #10b981;
+            --gradient-1:   linear-gradient(135deg, #0ea5e9, #8b5cf6);
+            --radius:       12px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex; align-items: center; justify-content: center; padding: 20px;
+        }
+
+        .login-container {
+            width: 100%; max-width: 400px;
+        }
+        .login-header {
+            text-align: center;
+            margin-bottom: 28px;
+        }
+        .login-header h1 {
+            font-size: 1.6rem; font-weight: 700;
+            background: var(--gradient-1);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+        }
+        .login-header p { color: var(--text-muted); font-size: .85rem; }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 28px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+        }
+
+        .field-group { margin-bottom: 20px; }
+        .field-group label {
+            display: block; font-size: .8rem; font-weight: 500;
+            color: var(--text-muted); margin-bottom: 6px;
+        }
+        .form-input {
+            width: 100%;
+            padding: 12px 14px;
+            background: rgba(255,255,255,.04);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-family: inherit; font-size: .95rem;
+            outline: none;
+            transition: border-color .2s;
+        }
+        .form-input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+
+        .btn-submit {
+            width: 100%;
+            padding: 12px;
+            border: none; border-radius: 8px;
+            background: var(--gradient-1);
+            color: #fff; font-weight: 600; font-size: .95rem;
+            cursor: pointer; transition: transform .15s, box-shadow .15s;
+            margin-top: 10px;
+        }
+        .btn-submit:hover { transform: translateY(-1px); box-shadow: 0 4px 20px var(--accent-glow); }
+
+        .messages { margin-bottom: 20px; }
+        .messages li {
+            list-style: none; padding: 12px 16px;
+            border-radius: 8px; margin-bottom: 8px;
+            font-size: .85rem;
+            text-align: center;
+        }
+        .messages .success { background: rgba(16,185,129,.15); color: var(--success); }
+        .messages .error   { background: rgba(239,68,68,.15);  color: var(--danger); }
+        .messages .info    { background: rgba(34,211,238,.15);  color: var(--accent); }
+
+        .back-link {
+            text-align: center; margin-top: 20px; font-size: .85rem;
+        }
+        .back-link a { color: var(--accent); text-decoration: none; }
+        .back-link a:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-header">
+            <h1>🛡️ NPF Geo Incidents</h1>
+            <p>Authorized Officer Sign In</p>
+        </div>
+
+        {% if messages %}
+        <ul class="messages">
+            {% for msg in messages %}
+            <li class="{{ msg.tags }}">{{ msg }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+
+        <div class="card">
+            <form method="post">
+                {% csrf_token %}
+                <div class="field-group">
+                    <label for="id_username">Username</label>
+                    <input type="text" name="username" id="id_username" class="form-input" required autofocus placeholder="Enter username">
+                </div>
+                <div class="field-group">
+                    <label for="id_password">Password</label>
+                    <input type="password" name="password" id="id_password" class="form-input" required placeholder="Enter password">
+                </div>
+                <button type="submit" class="btn-submit">Sign In</button>
+            </form>
+        </div>
+
+        <div class="back-link">
+            <a href="{% url 'npf_geo_incidents:heatmap' %}">← Return to Public Dashboard</a>
+        </div>
+    </div>
+</body>
+</html>

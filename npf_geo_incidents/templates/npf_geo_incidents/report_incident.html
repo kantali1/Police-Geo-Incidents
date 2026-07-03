@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }} — NPF Geo Incidents</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        :root {
+            --bg-primary:   #0a0e17;
+            --bg-card:      #1a1f2e;
+            --border:       rgba(255,255,255,0.06);
+            --text-primary: #e2e8f0;
+            --text-muted:   #94a3b8;
+            --accent:       #22d3ee;
+            --accent-glow:  rgba(34,211,238,0.25);
+            --danger:       #ef4444;
+            --success:      #10b981;
+            --gradient-1:   linear-gradient(135deg, #0ea5e9, #8b5cf6);
+            --radius:       12px;
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex; justify-content: center; padding: 40px 20px;
+        }
+
+        .form-container {
+            width: 100%; max-width: 700px;
+        }
+        .form-header {
+            margin-bottom: 32px;
+        }
+        .form-header h1 {
+            font-size: 1.8rem; font-weight: 700;
+            background: var(--gradient-1);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+        }
+        .form-header p { color: var(--text-muted); font-size: .9rem; }
+        .form-header a { color: var(--accent); text-decoration: none; }
+        .form-header a:hover { text-decoration: underline; }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 28px;
+            margin-bottom: 20px;
+        }
+        .card-title {
+            font-size: .85rem; font-weight: 600;
+            text-transform: uppercase; letter-spacing: 1px;
+            color: var(--accent);
+            margin-bottom: 20px;
+        }
+
+        .field-group { margin-bottom: 18px; }
+        .field-group label {
+            display: block; font-size: .8rem; font-weight: 500;
+            color: var(--text-muted); margin-bottom: 6px;
+        }
+        .form-input, .form-select, .form-textarea {
+            width: 100%;
+            padding: 10px 14px;
+            background: rgba(255,255,255,.04);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-family: inherit; font-size: .9rem;
+            outline: none;
+            transition: border-color .2s;
+        }
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+        .form-select { appearance: none; cursor: pointer; }
+        .form-textarea { resize: vertical; min-height: 80px; }
+        .form-checkbox { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
+
+        .row { display: flex; gap: 16px; }
+        .row > .field-group { flex: 1; }
+
+        .help-text { font-size: .75rem; color: var(--text-muted); margin-top: 4px; }
+        .error-text { font-size: .75rem; color: var(--danger); margin-top: 4px; }
+
+        /* Mini map for point picking */
+        #location-picker { width: 100%; height: 250px; border-radius: 8px; border: 1px solid var(--border); }
+
+        .btn-submit {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 12px 28px;
+            border: none; border-radius: 8px;
+            background: var(--gradient-1);
+            color: #fff; font-weight: 600; font-size: .95rem;
+            cursor: pointer; transition: transform .15s, box-shadow .15s;
+        }
+        .btn-submit:hover { transform: translateY(-1px); box-shadow: 0 4px 20px var(--accent-glow); }
+
+        .messages { margin-bottom: 16px; }
+        .messages li {
+            list-style: none; padding: 10px 16px;
+            border-radius: 8px; margin-bottom: 8px;
+            font-size: .85rem;
+        }
+        .messages .success { background: rgba(16,185,129,.15); color: var(--success); }
+        .messages .error   { background: rgba(239,68,68,.15);  color: var(--danger); }
+    </style>
+</head>
+<body>
+    <div class="form-container">
+        <div class="form-header">
+            <h1>🛡️ {{ page_title }}</h1>
+            <p><a href="{% url 'npf_geo_incidents:heatmap' %}">← Back to Heatmap</a></p>
+        </div>
+
+        {% if messages %}
+        <ul class="messages">
+            {% for msg in messages %}
+            <li class="{{ msg.tags }}">{{ msg }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+
+        <form method="post" novalidate>
+            {% csrf_token %}
+
+            <!-- Location -->
+            <div class="card">
+                <div class="card-title">📍 Location</div>
+                <p class="help-text" style="margin-bottom:12px">Click on the map or type coordinates manually.</p>
+                <div id="location-picker"></div>
+                <div class="row" style="margin-top:14px">
+                    <div class="field-group">
+                        <label for="id_latitude">Latitude</label>
+                        {{ form.latitude }}
+                        {% if form.latitude.errors %}<p class="error-text">{{ form.latitude.errors.0 }}</p>{% endif %}
+                    </div>
+                    <div class="field-group">
+                        <label for="id_longitude">Longitude</label>
+                        {{ form.longitude }}
+                        {% if form.longitude.errors %}<p class="error-text">{{ form.longitude.errors.0 }}</p>{% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Incident Details -->
+            <div class="card">
+                <div class="card-title">📋 Incident Details</div>
+                <div class="field-group">
+                    <label for="id_title">Title</label>
+                    {{ form.title }}
+                    {% if form.title.errors %}<p class="error-text">{{ form.title.errors.0 }}</p>{% endif %}
+                </div>
+                <div class="row">
+                    <div class="field-group">
+                        <label for="id_incident_type">Type</label>
+                        {{ form.incident_type }}
+                    </div>
+                    <div class="field-group">
+                        <label for="id_severity">Severity</label>
+                        {{ form.severity }}
+                    </div>
+                </div>
+                <div class="field-group">
+                    <label for="id_description">Description</label>
+                    {{ form.description }}
+                </div>
+            </div>
+
+            <!-- Reporting -->
+            <div class="card">
+                <div class="card-title">🏷️ Reporting</div>
+                <div class="row">
+                    <div class="field-group">
+                        <label for="id_reported_by">Reported By</label>
+                        {{ form.reported_by }}
+                    </div>
+                    <div class="field-group">
+                        <label for="id_contact_details">Contact Details</label>
+                        {{ form.contact_details }}
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="field-group">
+                        <label for="id_date_occurred">Date Occurred</label>
+                        {{ form.date_occurred }}
+                    </div>
+                </div>
+                <div class="field-group" style="display:flex;align-items:center;gap:10px;margin-top:8px">
+                    {{ form.is_verified }}
+                    <label for="id_is_verified" style="margin-bottom:0;cursor:pointer">Verified incident</label>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-submit">Submit Incident Report →</button>
+        </form>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+    (function() {
+        const pickerMap = L.map('location-picker', { center: [9.0820, 8.6753], zoom: 6 });
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; CARTO', maxZoom: 19
+        }).addTo(pickerMap);
+
+        let marker = null;
+        const latInput = document.getElementById('id_latitude');
+        const lngInput = document.getElementById('id_longitude');
+
+        pickerMap.on('click', function(e) {
+            const { lat, lng } = e.latlng;
+            latInput.value = lat.toFixed(4);
+            lngInput.value = lng.toFixed(4);
+            if (marker) marker.setLatLng(e.latlng);
+            else marker = L.marker(e.latlng).addTo(pickerMap);
+        });
+
+        // If values already exist, place marker
+        if (latInput.value && lngInput.value) {
+            const ll = [parseFloat(latInput.value), parseFloat(lngInput.value)];
+            marker = L.marker(ll).addTo(pickerMap);
+            pickerMap.setView(ll, 10);
+        }
+    })();
+    </script>
+</body>
+</html>

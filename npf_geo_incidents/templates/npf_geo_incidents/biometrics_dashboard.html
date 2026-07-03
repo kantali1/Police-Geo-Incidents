@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ page_title }} — NPF Geo Incidents</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary:   #0a0e17;
+            --bg-secondary: #111827;
+            --bg-card:      #1a1f2e;
+            --bg-glass:     rgba(26, 31, 46, 0.85);
+            --border:       rgba(255,255,255,0.06);
+            --text-primary: #e2e8f0;
+            --text-muted:   #94a3b8;
+            --accent:       #22d3ee;
+            --accent-glow:  rgba(34, 211, 238, 0.25);
+            --danger:       #ef4444;
+            --success:      #10b981;
+            --gradient-1:   linear-gradient(135deg, #0ea5e9, #8b5cf6);
+            --radius:       12px;
+            --shadow:       0 8px 32px rgba(0,0,0,0.5);
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding-bottom: 60px;
+        }
+
+        /* Topbar */
+        .topbar {
+            height: 60px;
+            background: var(--bg-glass);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 24px;
+            position: sticky; top: 0; z-index: 100;
+        }
+        .topbar-brand {
+            display: flex; align-items: center; gap: 12px;
+            font-weight: 700; font-size: 1.1rem;
+        }
+        .topbar-brand a { color: inherit; text-decoration: none; }
+        .topbar-brand .badge {
+            background: var(--gradient-1);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: .7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .btn-nav-back {
+            color: var(--text-muted); text-decoration: none; font-size: .85rem;
+            display: inline-flex; align-items: center; gap: 6px;
+            transition: color .2s;
+        }
+        .btn-nav-back:hover { color: var(--accent); }
+
+        .container {
+            max-width: 1000px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        /* Tabs */
+        .tab-nav {
+            display: flex; gap: 8px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 30px;
+            padding-bottom: 2px;
+        }
+        .tab-btn {
+            background: none; border: none;
+            color: var(--text-muted);
+            padding: 10px 20px;
+            font-size: .9rem; font-weight: 600;
+            cursor: pointer;
+            position: relative;
+            transition: color .2s;
+        }
+        .tab-btn:hover { color: var(--text-primary); }
+        .tab-btn.active { color: var(--accent); }
+        .tab-btn.active::after {
+            content: '';
+            position: absolute; bottom: -2px; left: 0; right: 0;
+            height: 2px; background: var(--accent);
+            box-shadow: 0 0 8px var(--accent);
+        }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* Card styles */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 28px;
+            margin-bottom: 20px;
+            box-shadow: var(--shadow);
+        }
+        .card-title {
+            font-size: 1.05rem; font-weight: 700;
+            margin-bottom: 20px;
+            color: var(--accent);
+            border-bottom: 1px solid rgba(255,255,255,.03);
+            padding-bottom: 10px;
+        }
+
+        /* Forms */
+        .field-group { margin-bottom: 20px; }
+        .field-group label {
+            display: block; font-size: .8rem; font-weight: 500;
+            color: var(--text-muted); margin-bottom: 6px;
+        }
+        .form-input, .form-select, .form-textarea {
+            width: 100%;
+            padding: 11px 14px;
+            background: rgba(255,255,255,.04);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-family: inherit; font-size: .9rem;
+            outline: none;
+            transition: border-color .2s;
+        }
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+        .form-select { appearance: none; cursor: pointer; }
+        .form-textarea { resize: vertical; min-height: 80px; }
+        .row { display: flex; gap: 16px; margin-bottom: 16px; }
+        .row > .field-group { flex: 1; margin-bottom: 0; }
+
+        .btn-submit {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 12px 28px;
+            border: none; border-radius: 8px;
+            background: var(--gradient-1);
+            color: #fff; font-weight: 600; font-size: .95rem;
+            cursor: pointer; transition: transform .15s, box-shadow .15s;
+        }
+        .btn-submit:hover { transform: translateY(-1px); box-shadow: 0 4px 20px var(--accent-glow); }
+
+        /* Suspect list directory */
+        .suspect-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+        }
+        .suspect-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+            transition: border-color .2s, transform .2s;
+            display: flex; flex-direction: column;
+        }
+        .suspect-card:hover {
+            border-color: var(--accent);
+            transform: translateY(-2px);
+        }
+        .suspect-image-container {
+            width: 100%; height: 180px;
+            background: #0f172a;
+            display: flex; align-items: center; justify-content: center;
+            border-bottom: 1px solid var(--border);
+            position: relative;
+        }
+        .suspect-image-container img {
+            width: 100%; height: 100%;
+            object-fit: cover;
+        }
+        .suspect-placeholder {
+            font-size: 3rem; opacity: 0.3;
+        }
+        .suspect-info { padding: 18px; flex: 1; display: flex; flex-direction: column; }
+        .suspect-name { font-size: 1.05rem; font-weight: 600; margin-bottom: 8px; }
+        .suspect-detail { font-size: .8rem; color: var(--text-muted); margin-bottom: 6px; }
+        .suspect-badge {
+            display: inline-block; align-self: flex-start;
+            background: rgba(34,211,238,.1); color: var(--accent);
+            padding: 3px 8px; border-radius: 4px;
+            font-size: .75rem; font-weight: 500;
+            margin-top: auto;
+        }
+
+        /* Results / Match scoring cards */
+        .result-card {
+            display: flex; align-items: center; gap: 20px;
+            background: rgba(255,255,255,.02);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 16px 20px;
+            margin-bottom: 12px;
+            transition: border-color .2s;
+        }
+        .result-card:hover { border-color: var(--accent); }
+        .result-match-badge {
+            width: 60px; height: 60px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 700; font-size: .95rem;
+            color: #fff;
+            flex-shrink: 0;
+        }
+        .match-high { background: linear-gradient(135deg, #ef4444, #f59e0b); box-shadow: 0 0 12px rgba(239,68,68,0.4); }
+        .match-medium { background: linear-gradient(135deg, #0ea5e9, #8b5cf6); box-shadow: 0 0 12px rgba(14,165,233,0.4); }
+        .match-low { background: #334155; }
+        
+        .result-photo {
+            width: 50px; height: 50px; border-radius: 6px;
+            overflow: hidden; background: #0f172a;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+        .result-photo img { width: 100%; height: 100%; object-fit: cover; }
+        .result-details { flex: 1; }
+        .result-name { font-weight: 600; font-size: .95rem; margin-bottom: 4px; }
+        .result-meta { font-size: .8rem; color: var(--text-muted); }
+
+        .messages { margin-bottom: 24px; }
+        .messages li {
+            list-style: none; padding: 12px 18px;
+            border-radius: 8px; margin-bottom: 10px;
+            font-size: .85rem;
+        }
+        .messages .success { background: rgba(16,185,129,.15); color: var(--success); }
+        .messages .error   { background: rgba(239,68,68,.15);  color: var(--danger); }
+        .messages .info    { background: rgba(34,211,238,.15);  color: var(--accent); }
+
+        /* Drag-and-drop file upload area */
+        .upload-area {
+            border: 2px dashed rgba(255,255,255,.12);
+            border-radius: var(--radius);
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all .2s;
+            margin-bottom: 20px;
+            background: rgba(255,255,255,.01);
+        }
+        .upload-area:hover {
+            border-color: var(--accent);
+            background: rgba(34,211,238,.02);
+        }
+        .upload-icon { font-size: 2.2rem; color: var(--text-muted); margin-bottom: 12px; }
+        .upload-text { font-size: .9rem; font-weight: 500; margin-bottom: 6px; }
+        .upload-subtext { font-size: .75rem; color: var(--text-muted); }
+    </style>
+</head>
+<body>
+
+    <!-- Topbar -->
+    <header class="topbar">
+        <div class="topbar-brand">
+            <span>🛡️</span>
+            <a href="{% url 'npf_geo_incidents:heatmap' %}">NPF Geo Incidents</a>
+            <span class="badge">Biometrics</span>
+        </div>
+        <a href="{% url 'npf_geo_incidents:heatmap' %}" class="btn-nav-back">
+            ← Return to Crime Heatmap
+        </a>
+    </header>
+
+    <div class="container">
+        {% if messages %}
+        <ul class="messages">
+            {% for msg in messages %}
+            <li class="{{ msg.tags }}">{{ msg }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+
+        <!-- Tab Selection Navigation -->
+        <nav class="tab-nav">
+            <button class="tab-btn {% if tab == 'directory' %}active{% endif %}" onclick="switchTab('directory')">Suspect Directory</button>
+            <button class="tab-btn {% if tab == 'register' %}active{% endif %}" onclick="switchTab('register')">Register New Suspect</button>
+            <button class="tab-btn {% if tab == 'search' %}active{% endif %}" onclick="switchTab('search')">Biometrics Identification</button>
+        </nav>
+
+        <!-- TAB 1: Suspect Directory -->
+        <section id="tab-directory" class="tab-content {% if tab == 'directory' %}active{% endif %}">
+            <div class="card">
+                <div class="card-title">Suspect Directory ({{ suspects.count }} registered)</div>
+                
+                {% if not suspects %}
+                <p style="color:var(--text-muted); text-align:center; padding: 40px 0;">No suspects registered in the database.</p>
+                {% else %}
+                <div class="suspect-grid">
+                    {% for suspect in suspects %}
+                    <article class="suspect-card">
+                        <div class="suspect-image-container">
+                            {% if suspect.face_image %}
+                            <img src="{{ suspect.face_image.url }}" alt="{{ suspect.name }}">
+                            {% else %}
+                            <span class="suspect-placeholder">👤</span>
+                            {% endif %}
+                        </div>
+                        <div class="suspect-info">
+                            <h3 class="suspect-name">{{ suspect.name }}</h3>
+                            <div class="suspect-detail">⚧ Gender: {{ suspect.get_gender_display }}</div>
+                            {% if suspect.date_of_birth %}
+                            <div class="suspect-detail">📅 DOB: {{ suspect.date_of_birth|date:"Y-m-d" }}</div>
+                            {% endif %}
+                            {% if suspect.state_of_arrest %}
+                            <div class="suspect-detail">👮 Arrested in: {{ suspect.lga_of_arrest.name }}, {{ suspect.state_of_arrest.name }}</div>
+                            {% endif %}
+                            
+                            <span class="suspect-badge">ID: #{{ suspect.id }}</span>
+                        </div>
+                    </article>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </section>
+
+        <!-- TAB 2: Register New Suspect -->
+        <section id="tab-register" class="tab-content {% if tab == 'register' %}active{% endif %}">
+            <div class="card">
+                <div class="card-title">Register Suspect Profile</div>
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="register">
+                    
+                    <div class="field-group">
+                        <label for="reg_name">Full Name</label>
+                        <input type="text" name="name" id="reg_name" class="form-input" placeholder="e.g. John Doe" required>
+                    </div>
+
+                    <div class="row">
+                        <div class="field-group">
+                            <label for="reg_gender">Gender</label>
+                            <select name="gender" id="reg_gender" class="form-select" required>
+                                <option value="M">Male</option>
+                                <option value="F">Female</option>
+                                <option value="O">Other</option>
+                            </select>
+                        </div>
+                        <div class="field-group">
+                            <label for="reg_dob">Date of Birth</label>
+                            <input type="date" name="date_of_birth" id="reg_dob" class="form-input">
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="field-group">
+                            <label for="reg_state">State of Arrest</label>
+                            <select name="state_of_arrest" id="reg_state" class="form-select" onchange="filterLgas(this.value)">
+                                <option value="">Select State</option>
+                                {% for s in states %}
+                                <option value="{{ s.id }}">{{ s.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="field-group">
+                            <label for="reg_lga">LGA of Arrest</label>
+                            <select name="lga_of_arrest" id="reg_lga" class="form-select">
+                                <option value="">Select State First</option>
+                                {% for l in lgas %}
+                                <option value="{{ l.id }}" data-state="{{ l.state_id }}" style="display:none;">{{ l.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="field-group">
+                        <label for="reg_face">Facial Photo (Image Upload for ML face recognition)</label>
+                        <input type="file" name="face_image" id="reg_face" class="form-input" accept="image/*">
+                    </div>
+
+                    <div class="row">
+                        <div class="field-group">
+                            <label for="reg_finger_type">Finger Scanned</label>
+                            <select name="finger_type" id="reg_finger_type" class="form-select">
+                                <option value="R_thumb">Right Thumb</option>
+                                <option value="R_index">Right Index</option>
+                                <option value="L_thumb">Left Thumb</option>
+                                <option value="L_index">Left Index</option>
+                            </select>
+                        </div>
+                        <div class="field-group">
+                            <label for="reg_minutiae">Fingerprint Minutiae Template (JSON — Leave empty to generate mock template)</label>
+                            <textarea name="minutiae_template" id="reg_minutiae" class="form-textarea" placeholder='e.g. [{"x": 100, "y": 150, "type": "bifurcation", "angle": 0.45}, ...]'></textarea>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn-submit">Register Profile & Process Biometrics →</button>
+                </form>
+            </div>
+        </section>
+
+        <!-- TAB 3: Biometrics Identification -->
+        <section id="tab-search" class="tab-content {% if tab == 'search' %}active{% endif %}">
+            <div class="card">
+                <div class="card-title">🔍 Biometric Identification Scan</div>
+                <p class="help-text" style="margin-bottom:20px; color:var(--text-muted);">
+                    Identify a suspect by uploading a fingerprint minutiae template file or processing a facial photograph.
+                </p>
+
+                <div class="row">
+                    <!-- Fingerprint matching panel -->
+                    <div class="field-group" style="flex:1;">
+                        <h3 style="font-size:.9rem; font-weight:600; color:var(--accent); margin-bottom:12px">Option A: Fingerprint Matching</h3>
+                        <form method="post" enctype="multipart/form-data">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="search_fingerprint">
+                            
+                            <div class="upload-area" onclick="document.getElementById('search_fingerprint_file').click()">
+                                <div class="upload-icon">🖐️</div>
+                                <div class="upload-text">Upload Minutiae JSON File</div>
+                                <div class="upload-subtext">Click to choose file</div>
+                                <input type="file" name="fingerprint_file" id="search_fingerprint_file" style="display:none;" accept=".json,text/plain" onchange="this.form.submit()">
+                            </div>
+
+                            <div class="field-group">
+                                <label for="search_manual_finger">Or Paste Raw JSON Template</label>
+                                <textarea name="fingerprint_template" id="search_manual_finger" class="form-textarea" placeholder='[{"x": 100, "y": 150, ...}]' rows="4"></textarea>
+                            </div>
+                            <button type="submit" class="btn-submit">Compare Minutiae Scan →</button>
+                        </form>
+                    </div>
+
+                    <!-- Face Recognition Search panel -->
+                    <div class="field-group" style="flex:1;">
+                        <h3 style="font-size:.9rem; font-weight:600; color:var(--accent); margin-bottom:12px">Option B: Facial Recognition Search</h3>
+                        <form method="post" enctype="multipart/form-data">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="search_face">
+                            
+                            <div class="upload-area" onclick="document.getElementById('search_face_image').click()">
+                                <div class="upload-icon">📷</div>
+                                <div class="upload-text">Upload Photograph File</div>
+                                <div class="upload-subtext">Click to upload photo for extraction</div>
+                                <input type="file" name="search_face_image" id="search_face_image" style="display:none;" accept="image/*" onchange="this.form.submit()">
+                            </div>
+                            <button type="submit" class="btn-submit" style="width:100%;">Upload & Match Face Embedding →</button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Match Results List -->
+                {% if results is not None %}
+                <div style="margin-top:40px;">
+                    <h3 style="font-size:1rem; font-weight:600; color:var(--text-primary); margin-bottom:16px;">
+                        🎯 Match Results (Search by {{ search_type|title }})
+                    </h3>
+                    
+                    {% if not results %}
+                    <p style="color:var(--text-muted)">No matching suspects found above threshold.</p>
+                    {% else %}
+                        {% for r in results %}
+                        <div class="result-card">
+                            {% if r.score >= 70 %}
+                            <div class="result-match-badge match-high">{{ r.score }}%</div>
+                            {% elif r.score >= 40 %}
+                            <div class="result-match-badge match-medium">{{ r.score }}%</div>
+                            {% else %}
+                            <div class="result-match-badge match-low">{{ r.score }}%</div>
+                            {% endif %}
+
+                            <div class="result-photo">
+                                {% if r.suspect.face_image %}
+                                <img src="{{ r.suspect.face_image.url }}" alt="{{ r.suspect.name }}">
+                                {% else %}
+                                <span>👤</span>
+                                {% endif %}
+                            </div>
+
+                            <div class="result-details">
+                                <div class="result-name">{{ r.suspect.name }} {% if r.finger %}({{ r.finger }}){% endif %}</div>
+                                <div class="result-meta">
+                                    ⚧ Gender: {{ r.suspect.get_gender_display }} | 
+                                    👮 Arrest location: {{ r.suspect.lga_of_arrest.name }}, {{ r.suspect.state_of_arrest.name }}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+        </section>
+    </div>
+
+    <script>
+        function switchTab(tabId) {
+            // Hide all contents
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+
+            // Show active tab
+            document.getElementById('tab-' + tabId).classList.add('active');
+            
+            // Highlight button
+            const buttons = Array.from(document.querySelectorAll('.tab-btn'));
+            const activeBtn = buttons.find(b => b.textContent.toLowerCase().includes(tabId.substring(0,4)));
+            if (activeBtn) activeBtn.classList.add('active');
+
+            // Update URL query parameter without refreshing
+            const url = new URL(window.location);
+            url.searchParams.set('tab', tabId);
+            window.history.pushState({}, '', url);
+        }
+
+        function filterLgas(stateId) {
+            const lgaSelect = document.getElementById('reg_lga');
+            const options = lgaSelect.options;
+            
+            // Reset selection
+            lgaSelect.value = '';
+            
+            // Hide/Show options based on state ID attribute
+            for (let i = 0; i < options.length; i++) {
+                const opt = options[i];
+                const optState = opt.getAttribute('data-state');
+                if (optState === stateId || !stateId) {
+                    opt.style.display = 'block';
+                } else {
+                    opt.style.display = 'none';
+                }
+            }
+        }
+
+        // Run LGA filter initially if state has value
+        window.addEventListener('DOMContentLoaded', () => {
+            const stateVal = document.getElementById('reg_state').value;
+            if (stateVal) filterLgas(stateVal);
+        });
+    </script>
+</body>
+</html>
