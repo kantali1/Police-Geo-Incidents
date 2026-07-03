@@ -1,0 +1,4 @@
+title,incident_type,severity,description,reported_by,contact_details,date_occurred,latitude,longitude,is_verified
+Armed Robbery on Kaduna Expressway,theft,critical,Suspects set up roadblock and robbed multiple motorists,Inspector Danjuma,08099887766,2026-05-15 14:30:00,10.5105,7.4165,true
+Vandalism at Lagos Port,vandalism,medium,Attempt to sabotage power cables at the container terminal,Officer Babajide,08011223344,2026-06-01 02:15:00,6.5244,3.3792,false
+Illegal border smuggling report,other,high,Smuggling activity detected in foreign waters,Anonymous,,2026-04-10,45.0,-75.0,true
